@@ -11,6 +11,10 @@ interface GameState {
   settings: {
     soundEnabled: boolean;
     hapticEnabled: boolean;
+    soundVolume: number; // 0 to 1
+    assistMode: boolean;
+    leftHanded: boolean;
+    hasSeenOnboarding: boolean;
   };
 
   currentMode: GameMode;
@@ -48,7 +52,7 @@ interface GameState {
   popCustomer: () => void;
   addCustomer: (c: Customer) => void;
   setPouring: (pouring: boolean) => void;
-  setCurrentFill: (fill: number) => void;
+  setCurrentFill: (fill: number | ((prev: number) => number)) => void;
   setActiveTap: (id: string) => void;
   addToast: (message: string, type: Toast['type']) => void;
   removeToast: (id: string) => void;
@@ -56,7 +60,9 @@ interface GameState {
   updatePatience: (dt: number) => void;
   tickTimer: (dt: number) => void;
   saveRun: () => void;
-  toggleSetting: (key: 'soundEnabled' | 'hapticEnabled') => void;
+  toggleSetting: (key: 'soundEnabled' | 'hapticEnabled' | 'assistMode' | 'leftHanded') => void;
+  setSoundVolume: (volume: number) => void;
+  setHasSeenOnboarding: (seen: boolean) => void;
   activateFrenzy: () => void;
   getNextShiftThreshold: () => number;
   resetShiftTips: () => void;
@@ -86,7 +92,14 @@ export const useGameStore = create<GameState>()(
       highScoreTimed: 0,
       totalTips: 0,
       upgrades: INITIAL_UPGRADES,
-      settings: { soundEnabled: true, hapticEnabled: true },
+      settings: { 
+        soundEnabled: true, 
+        hapticEnabled: true, 
+        soundVolume: 1.0,
+        assistMode: false,
+        leftHanded: false,
+        hasSeenOnboarding: false,
+      },
       currentMode: 'CLASSIC',
       currentPhase: 'IDLE',
       currentLevel: 1,
@@ -225,7 +238,8 @@ export const useGameStore = create<GameState>()(
         }
         
         const coolerLevel = state.upgrades.find(u => u.id === 'auto_cooler')?.level || 0;
-        const pressureBuild = 0.15 * (1 - coolerLevel * 0.1);
+        const assistMod = state.settings.assistMode ? 0.5 : 1.0; // Less pressure build in assist mode
+        const pressureBuild = 0.15 * (1 - coolerLevel * 0.1) * assistMod;
         
         return { 
             walkouts: newWalkouts, 
@@ -245,8 +259,29 @@ export const useGameStore = create<GameState>()(
         targetFill: state.customerQueue.length === 0 ? c.targetFill : state.targetFill
       })),
 
-      setPouring: (pouring) => set({ isPouring: pouring }),
-      setCurrentFill: (fill) => set({ currentFill: fill }),
+      setPouring: (pouring) => set((state) => {
+        // #region agent log
+        if (state.isPouring !== pouring) {
+          fetch('http://127.0.0.1:7247/ingest/5505c98f-4996-4415-8bff-252cd7c91114', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: 'debug-session',
+              runId: 'pre-fix',
+              hypothesisId: 'A',
+              location: 'store.ts:setPouring',
+              message: 'Pouring state change',
+              data: { prevPouring: state.isPouring, nextPouring: pouring, currentPhase: state.currentPhase },
+              timestamp: Date.now()
+            })
+          }).catch(() => {});
+        }
+        // #endregion
+        return { isPouring: pouring };
+      }),
+      setCurrentFill: (fill) => set((state) => ({ 
+        currentFill: typeof fill === 'function' ? fill(state.currentFill) : fill 
+      })),
 
       purchaseUpgrade: (id) => set((state) => {
         const up = state.upgrades.find(u => u.id === id);
@@ -260,10 +295,11 @@ export const useGameStore = create<GameState>()(
       updatePatience: (dt) => set((state) => {
           if (state.isFrenzyActive || state.currentPhase !== 'RUNNING') return state;
           const difficultyMod = 1 + (state.currentLevel - 1) * 0.12;
+          const assistMod = state.settings.assistMode ? 0.6 : 1.0; // Slower patience decay in assist mode
           return {
             customerQueue: state.customerQueue.map(c => ({
                 ...c,
-                patienceRemainingMs: Math.max(0, c.patienceRemainingMs - (dt * (c.isVip ? 1.4 : 1) * difficultyMod))
+                patienceRemainingMs: Math.max(0, c.patienceRemainingMs - (dt * (c.isVip ? 1.4 : 1) * difficultyMod * assistMod))
             }))
           };
       }),
@@ -280,6 +316,14 @@ export const useGameStore = create<GameState>()(
 
       toggleSetting: (key) => set((state) => ({
         settings: { ...state.settings, [key]: !state.settings[key] }
+      })),
+      
+      setSoundVolume: (volume) => set((state) => ({
+        settings: { ...state.settings, soundVolume: Math.max(0, Math.min(1, volume)) }
+      })),
+      
+      setHasSeenOnboarding: (seen) => set((state) => ({
+        settings: { ...state.settings, hasSeenOnboarding: seen }
       })),
 
       saveRun: () => set((state) => {

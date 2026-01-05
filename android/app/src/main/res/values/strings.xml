@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pour Panic</string>
+    <string name="title_activity_main">Pour Panic</string>
+    <string name="package_name">com.pourpanic.app</string>
+    <string name="custom_url_scheme">com.pourpanic.app</string>
+</resources>

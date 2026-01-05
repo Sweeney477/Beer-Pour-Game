@@ -6,13 +6,26 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:mobile": "VITE_APP_PLATFORM=mobile vite build && npx cap sync",
+    "ios:dev": "npm run build:mobile && npx cap open ios",
+    "android:dev": "npm run build:mobile && npx cap open android",
+    "ios:sync": "npx cap sync ios",
+    "android:sync": "npx cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@capacitor/screen-orientation": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "howler": "^2.2.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "zustand": "^5.0.9",
-    "howler": "^2.2.4"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

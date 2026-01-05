@@ -1,6 +1,7 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useGameStore } from '../store';
+import { getWindowSize } from '../src/utils/platform';
 
 interface Particle {
     x: number;
@@ -16,8 +17,46 @@ interface Particle {
 export const GameRenderer: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particles = useRef<Particle[]>([]);
-  const { currentFill, targetFill, isPouring, activeTapId, taps, isFrenzyActive, toasts } = useGameStore();
+  const resizeTimeoutRef = useRef<number | null>(null);
+  
+  // Safe initial size calculation
+  const getInitialSize = useCallback(() => {
+    const size = getWindowSize();
+    return { width: size.width, height: size.height * 0.55 };
+  }, []);
+  
+  const [canvasSize, setCanvasSize] = useState(getInitialSize());
+  const currentFill = useGameStore((state) => state.currentFill);
+  const targetFill = useGameStore((state) => state.targetFill);
+  const isPouring = useGameStore((state) => state.isPouring);
+  const activeTapId = useGameStore((state) => state.activeTapId);
+  const taps = useGameStore((state) => state.taps);
+  const isFrenzyActive = useGameStore((state) => state.isFrenzyActive);
+  const toasts = useGameStore((state) => state.toasts);
   const activeTap = taps.find(t => t.id === activeTapId) || taps[0];
+
+  // Debounced resize handler
+  const handleResize = useCallback(() => {
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
+    }
+    resizeTimeoutRef.current = window.setTimeout(() => {
+      const size = getWindowSize();
+      setCanvasSize({ width: size.width, height: size.height * 0.55 });
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (resizeTimeoutRef.current) {
+          clearTimeout(resizeTimeoutRef.current);
+        }
+      };
+    }
+  }, [handleResize]);
 
   const triggerSparkles = (x: number, y: number) => {
     for (let i = 0; i < 20; i++) {
@@ -119,7 +158,7 @@ export const GameRenderer: React.FC = () => {
       ctx.setLineDash([]);
 
       // 2. Liquid Logic
-      const fillH = Math.min(1.1, currentFill) * glassH;
+      const fillH = Math.min(1.1, Math.max(0, currentFill)) * glassH;
       const liquidTopY = glassY + glassH - fillH;
 
       ctx.save();
@@ -276,12 +315,14 @@ export const GameRenderer: React.FC = () => {
       if (isPouring) {
         ctx.fillStyle = activeTap.color;
         const streamW = isFrenzyActive ? 22 : 14;
-        ctx.fillRect(glassX - streamW/2, 0, streamW, liquidTopY);
+        // Ensure liquidTopY is valid - if fillH is 0 or negative, draw from top of glass
+        const streamHeight = liquidTopY > 0 ? liquidTopY : glassY + glassH;
+        ctx.fillRect(glassX - streamW/2, 0, streamW, streamHeight);
         // Foam splash at point of contact
         if (Math.random() > 0.4) {
             ctx.fillStyle = style.foamColor;
             ctx.beginPath();
-            ctx.arc(glassX, liquidTopY, 10, 0, Math.PI * 2);
+            ctx.arc(glassX, streamHeight, 10, 0, Math.PI * 2);
             ctx.fill();
         }
       }
@@ -291,13 +332,13 @@ export const GameRenderer: React.FC = () => {
 
     render();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [currentFill, targetFill, isPouring, activeTap, isFrenzyActive]);
+  }, [currentFill, targetFill, isPouring, activeTap, isFrenzyActive, canvasSize]);
 
   return (
     <canvas 
       ref={canvasRef} 
-      width={window.innerWidth} 
-      height={window.innerHeight * 0.55}
+      width={canvasSize.width} 
+      height={canvasSize.height}
       className="w-full h-full touch-none pointer-events-none"
     />
   );

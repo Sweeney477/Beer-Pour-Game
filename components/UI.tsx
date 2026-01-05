@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Toast, Upgrade } from '../types';
 
 export const PrimaryButton: React.FC<{ onClick?: () => void; children: React.ReactNode; className?: string; disabled?: boolean }> = ({ onClick, children, className = '', disabled }) => (
@@ -47,7 +47,7 @@ export const ModalOverlay: React.FC<{ children: React.ReactNode; isOpen: boolean
   );
 };
 
-export const ToastFeedback: React.FC<{ toast: Toast; index: number }> = ({ toast, index }) => {
+export const ToastFeedback: React.FC<{ toast: Toast; index: number }> = memo(({ toast, index }) => {
   const configs: Record<string, { bg: string; icon: string }> = {
     PERFECT: { bg: 'bg-green-500 text-white', icon: 'stars' },
     GOOD: { bg: 'bg-blue-500 text-white', icon: 'thumb_up' },
@@ -70,7 +70,8 @@ export const ToastFeedback: React.FC<{ toast: Toast; index: number }> = ({ toast
       {toast.message}
     </div>
   );
-};
+});
+ToastFeedback.displayName = 'ToastFeedback';
 
 export const PatienceMeter: React.FC<{ percent: number }> = ({ percent }) => {
   const color = percent > 0.6 ? '#4ade80' : percent > 0.3 ? '#facc15' : '#f87171';
@@ -84,7 +85,7 @@ export const PatienceMeter: React.FC<{ percent: number }> = ({ percent }) => {
   );
 };
 
-export const CustomerCard: React.FC<{ customer: any; isCurrent: boolean; beerName: string; lastResult?: string }> = ({ customer, isCurrent, beerName, lastResult }) => {
+export const CustomerCard: React.FC<{ customer: any; isCurrent: boolean; beerName: string; lastResult?: string }> = memo(({ customer, isCurrent, beerName, lastResult }) => {
   const percent = customer.patienceRemainingMs / customer.patienceMaxMs;
   const isVip = customer.isVip;
 
@@ -140,17 +141,36 @@ export const CustomerCard: React.FC<{ customer: any; isCurrent: boolean; beerNam
       </div>
     </div>
   );
-};
+});
+CustomerCard.displayName = 'CustomerCard';
 
-export const TapSelectorButton: React.FC<{ tap: any; isActive: boolean; onClick: () => void }> = ({ tap, isActive, onClick }) => (
+export const TapSelectorButton: React.FC<{ tap: any; isActive: boolean; isWrongFlash?: boolean; isCustomerRequest?: boolean; onClick: () => void }> = memo(({ tap, isActive, isWrongFlash, isCustomerRequest, onClick }) => (
     <button 
         onClick={onClick}
-        className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all border-2 ${isActive ? 'bg-primary/20 border-primary' : 'bg-white/5 border-transparent'}`}
+        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-all border-3 min-h-[64px] min-w-[64px] active:scale-95 ${
+          isWrongFlash ? 'bg-red-500/30 border-red-500 ring-4 ring-red-500/50 scale-110' :
+          isActive ? 'bg-primary/30 border-primary scale-105 shadow-lg' : 
+          isCustomerRequest ? 'bg-white/10 border-white/30 ring-2 ring-white/20' :
+          'bg-white/5 border-transparent'
+        }`}
+        style={{ 
+          borderColor: isWrongFlash ? '#ef4444' : isActive ? tap.color : isCustomerRequest ? tap.color + '80' : undefined,
+          borderWidth: isActive || isCustomerRequest || isWrongFlash ? '3px' : '2px',
+          backgroundColor: isWrongFlash ? 'rgba(239, 68, 68, 0.3)' : isActive ? tap.color + '30' : isCustomerRequest ? tap.color + '15' : undefined
+        }}
     >
-        <span className="material-symbols-outlined mb-1" style={{ color: isActive ? '#f49d25' : '#fff' }}>water_drop</span>
-        <span className="text-[8px] font-black uppercase tracking-widest">{tap.name}</span>
+        <div 
+          className="w-8 h-8 rounded-full border-2 border-white/20 mb-1 shadow-inner"
+          style={{ backgroundColor: tap.color }}
+        />
+        <span className="material-symbols-outlined text-xl mb-0.5" style={{ color: isWrongFlash ? '#ef4444' : isActive ? tap.color : isCustomerRequest ? tap.color : '#fff' }}>water_drop</span>
+        <span className="text-xs font-black uppercase tracking-wider leading-tight">{tap.name}</span>
+        {isCustomerRequest && !isActive && (
+          <span className="text-[8px] text-primary font-bold mt-0.5 animate-pulse">NEEDED</span>
+        )}
     </button>
-);
+));
+TapSelectorButton.displayName = 'TapSelectorButton';
 
 export const FrenzyMeter: React.FC<{ progress: number; isActive: boolean }> = ({ progress, isActive }) => (
     <div className="w-full flex flex-col gap-1">
