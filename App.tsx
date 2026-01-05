@@ -630,9 +630,16 @@ const App: React.FC = () => {
             onMouseUp={() => setPouring(false)} 
             onTouchStart={() => setPouring(true)} 
             onTouchEnd={() => setPouring(false)}
-            className={`size-24 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all border-4 ${isPouring ? 'bg-white text-black border-primary scale-95' : 'bg-primary text-black border-white/20'}`}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            className={`size-24 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all border-4 select-none touch-manipulation ${isPouring ? 'bg-white text-black border-primary scale-95' : 'bg-primary text-black border-white/20'}`}
           >
-            <span className="material-symbols-outlined text-[48px]">{isPouring ? 'water_drop' : 'local_bar'}</span>
+            <span className="material-symbols-outlined text-[48px] select-none">{isPouring ? 'water_drop' : 'local_bar'}</span>
           </button>
           <button onClick={wrapClick(() => setCurrentFill(0))} className="flex-1 h-full bg-red-500/5 rounded-3xl flex flex-col items-center justify-center gap-1 border border-red-500/10 active:bg-red-500/10">
             <span className="material-symbols-outlined text-red-400 text-3xl">delete</span>
